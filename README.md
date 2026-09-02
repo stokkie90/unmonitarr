@@ -64,17 +64,28 @@ Don't know your Plex token? See
 
 ## Flags
 
-| Flag | Default | What it does |
-|---|---|---|
-| `--apply` | off (dry run) | Actually perform the changes. Without it, the script only prints what it would do. |
-| `--movie-library NAME` | `Movies` | Name of the Plex movie library section to scan. |
-| `--show-library NAME` | `TV Shows` | Name of the Plex TV library section to scan. |
-| `--skip-movies` | off | Don't process movies / Radarr at all. |
-| `--skip-shows` | off | Don't process TV episodes / Sonarr at all. |
-| `--hide-already-unmonitored` | off | Suppress the "already unmonitored" log line. **Turn this on if you also run [Maintainerr](https://github.com/jorenn92/Maintainerr)** (or anything else that unmonitors/cleans up watched media on its own): once Maintainerr has already unmonitored something, this script would otherwise keep re-logging it as "already unmonitored" on every single scheduled run, which is just noise. If you're *not* running something like Maintainerr, leave this off so you get a full record of what's already handled. |
-| `--delete-movies` | off | Instead of unmonitoring, remove the watched movie from Radarr entirely. |
-| `--delete-episodes` | off | Delete the watched episode's file from Sonarr and unmonitor the episode. Sonarr has no concept of removing a single episode entry (only its file), so the episode stays listed but file-less and unmonitored. |
-| `--delete-files` | off | Only relevant with `--delete-movies`: also delete the movie's files from disk. Without it, the movie is removed from Radarr but its files are left on disk (handy if something else, e.g. Maintainerr, handles physical cleanup). |
+Every flag also has an equivalent environment variable, so the container
+(or a systemd unit, or anything else that's more comfortable setting env
+vars than CLI args) can be configured without touching `SCRIPT_ARGS` at
+all. Boolean env vars accept `1`/`true`/`yes`/`on`, case-insensitive. A
+boolean env var can only turn a flag on; there's no env var that forces
+one off, so to disable something you set from the environment, unset the
+variable rather than expecting the CLI's absence to override it.
+
+| Flag | Env var | Default | What it does |
+|---|---|---|---|
+| `--apply` | `APPLY` | off (dry run) | Actually perform the changes. Without it, the script only prints what it would do. |
+| `--movie-library NAME` | `MOVIE_LIBRARY` | `Movies` | Name of the Plex movie library section to scan. |
+| `--show-library NAME` | `SHOW_LIBRARY` | `TV Shows` | Name of the Plex TV library section to scan. |
+| `--skip-movies` | `SKIP_MOVIES` | off | Don't process movies / Radarr at all. |
+| `--skip-shows` | `SKIP_SHOWS` | off | Don't process TV episodes / Sonarr at all. |
+| `--hide-already-unmonitored` | `HIDE_ALREADY_UNMONITORED` | off | Suppress the "already unmonitored" log line. **Turn this on if you also run [Maintainerr](https://github.com/jorenn92/Maintainerr)** (or anything else that unmonitors/cleans up watched media on its own): once Maintainerr has already unmonitored something, this script would otherwise keep re-logging it as "already unmonitored" on every single scheduled run, which is just noise. If you're *not* running something like Maintainerr, leave this off so you get a full record of what's already handled. |
+| `--delete-movies` | `DELETE_MOVIES` | off | Instead of unmonitoring, remove the watched movie from Radarr entirely. |
+| `--delete-episodes` | `DELETE_EPISODES` | off | Delete the watched episode's file from Sonarr and unmonitor the episode. Sonarr has no concept of removing a single episode entry (only its file), so the episode stays listed but file-less and unmonitored. |
+| `--delete-files` | `DELETE_FILES` | off | Only relevant with `--delete-movies`: also delete the movie's files from disk. Without it, the movie is removed from Radarr but its files are left on disk (handy if something else, e.g. Maintainerr, handles physical cleanup). |
+| `--unmonitor-after-days N` | `UNMONITOR_AFTER_DAYS` | `0` | Only unmonitor a watched item once it's been watched (per Plex's `lastViewedAt`) at least `N` days. `0` means immediately, the original behavior. |
+| `--delete-after-days N` | `DELETE_AFTER_DAYS` | `0` | Only relevant with `--delete-movies`/`--delete-episodes`: only delete once watched at least `N` days ago. This still deletes an item that was already unmonitored by an earlier run, since deletion doesn't check the current monitored state, only how long ago it was watched. Lets you run one schedule that unmonitors quickly and deletes much later. |
+| `--filter TEXT` | `FILTER` | off | Only process movies/shows whose title contains `TEXT` (case-insensitive). Mainly for testing against a single movie or show without touching the rest of the library. |
 
 ## Usage examples
 
@@ -98,6 +109,17 @@ uv run unmonitarr.py --apply --delete-movies --delete-episodes
 # Also wipe movie files from disk when deleting from Radarr
 uv run unmonitarr.py --apply --delete-movies --delete-files
 
+# Unmonitor immediately (default), but only delete once something's sat
+# watched for 90+ days. An item already unmonitored by an earlier run
+# still gets deleted once it crosses the threshold.
+uv run unmonitarr.py --apply --delete-movies --delete-episodes --delete-after-days 90
+
+# Wait a week after watching before even unmonitoring
+uv run unmonitarr.py --apply --unmonitor-after-days 7
+
+# Test against one title only, without touching the rest of the library
+uv run unmonitarr.py --filter "The Matrix"
+
 # Non-default Plex library names
 uv run unmonitarr.py --movie-library "Films" --show-library "Series"
 ```
@@ -111,7 +133,8 @@ a small built-in Python scheduler (no system cron daemon required).
 
 1. Copy `.env.example` to `.env` and fill in your Plex/Radarr/Sonarr
    details.
-2. Adjust `CRON_SCHEDULE` / `SCRIPT_ARGS` in `docker-compose.yml` if needed.
+2. Adjust `CRON_SCHEDULE` and the `unmonitarr.py` flag env vars (`APPLY`,
+   `HIDE_ALREADY_UNMONITORED`, etc.) in `docker-compose.yml` if needed.
 3. `docker compose up -d`
 
 ```yaml
@@ -124,8 +147,9 @@ services:
       - .env
     environment:
       CRON_SCHEDULE: "0 3 * * *"                              # daily at 03:00
-      SCRIPT_ARGS: "--apply --hide-already-unmonitored"
       RUN_ON_START: "false"
+      APPLY: "true"
+      HIDE_ALREADY_UNMONITORED: "true"
 ```
 
 ### Docker environment variables
@@ -133,8 +157,9 @@ services:
 | Variable | Default | Description |
 |---|---|---|
 | `CRON_SCHEDULE` | `0 3 * * *` | Standard 5-field cron expression for when to run. |
-| `SCRIPT_ARGS` | `--apply --hide-already-unmonitored` | Arguments passed to `unmonitarr.py` on each scheduled run (space-separated, shell-quoted). |
 | `RUN_ON_START` | `false` | Set to `true` to also run once immediately when the container starts, in addition to the schedule. |
+| `SCRIPT_ARGS` | `""` (unset) | Optional: arguments passed to `unmonitarr.py` on each scheduled run (space-separated, shell-quoted), e.g. `"--apply --skip-shows"`. Anything expressible this way can also be set as its own env var (see the [Flags](#flags) table); both mechanisms add up rather than one overriding the other. |
+| `APPLY`, `HIDE_ALREADY_UNMONITORED`, `SKIP_MOVIES`, `SKIP_SHOWS`, `DELETE_MOVIES`, `DELETE_EPISODES`, `DELETE_FILES`, `MOVIE_LIBRARY`, `SHOW_LIBRARY`, `UNMONITOR_AFTER_DAYS`, `DELETE_AFTER_DAYS`, `FILTER` | see [Flags](#flags) | One env var per `unmonitarr.py` flag, so the container can be fully configured without building a `SCRIPT_ARGS` string. |
 | `PLEX_URL`, `PLEX_TOKEN`, `RADARR_URL`, `RADARR_API_KEY`, `SONARR_URL`, `SONARR_API_KEY` | — | Connection details, as above. |
 
 ### Plain `docker run`
@@ -150,8 +175,22 @@ docker run -d \
   -e SONARR_URL=http://sonarr:8989 \
   -e SONARR_API_KEY=xxxx \
   -e CRON_SCHEDULE="0 3 * * *" \
-  -e SCRIPT_ARGS="--apply --hide-already-unmonitored" \
+  -e APPLY=true \
+  -e HIDE_ALREADY_UNMONITORED=true \
   ghcr.io/stokkie90/unmonitarr:latest
+```
+
+### Running `unmonitarr.py` directly in the container (bypassing the scheduler)
+
+The image's `ENTRYPOINT` is fixed to `scheduler.py`, so a plain
+`docker run ... unmonitarr python unmonitarr.py --help` silently runs the
+scheduler instead. It appends `python unmonitarr.py --help` as extra,
+ignored arguments to the entrypoint rather than erroring. To run the
+script directly, for example for a one-off manual dry run, override the
+entrypoint:
+
+```bash
+docker run --rm --env-file .env --entrypoint python unmonitarr:latest unmonitarr.py
 ```
 
 ## Building the image yourself

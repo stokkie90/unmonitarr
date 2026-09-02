@@ -9,12 +9,29 @@ services:
     env_file:
       - .env
     environment:
+      # --- Scheduler ---
       # Cron schedule for when the script runs (default: daily at 03:00)
       CRON_SCHEDULE: "0 3 * * *"
-      # Arguments passed to unmonitarr.py on every scheduled run.
-      # --hide-already-unmonitored is recommended if Maintainerr (or
-      # anything else) is also touching monitored state, to avoid
-      # re-logging the same already-handled items every run.
-      SCRIPT_ARGS: "--apply --hide-already-unmonitored"
       # Set to "true" to also run once immediately at container startup
       RUN_ON_START: "false"
+
+      # --- unmonitarr.py flags ---
+      # Every flag below can be set here as an env var instead of via
+      # SCRIPT_ARGS. Booleans accept 1/true/yes/on (case-insensitive).
+      APPLY: "true"
+      HIDE_ALREADY_UNMONITORED: "true"
+      # SKIP_MOVIES: "false"
+      # SKIP_SHOWS: "false"
+      # DELETE_MOVIES: "false"
+      # DELETE_EPISODES: "false"
+      # DELETE_FILES: "false"
+      # MOVIE_LIBRARY: "Movies"
+      # SHOW_LIBRARY: "TV Shows"
+      # UNMONITOR_AFTER_DAYS: "0"
+      # DELETE_AFTER_DAYS: "90"
+      # FILTER: ""
+
+      # Alternative: pass flags as a single shell-quoted string instead of
+      # the individual env vars above (both mechanisms add up, they don't
+      # override each other, since every flag can only be turned on).
+      SCRIPT_ARGS: ""
