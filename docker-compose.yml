@@ -1,0 +1,20 @@
+services:
+  unmonitarr:
+    # Build locally...
+    build: .
+    # ...or use the prebuilt image from GHCR instead of `build: .`:
+    # image: ghcr.io/stokkie90/unmonitarr:latest
+    container_name: unmonitarr
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Cron schedule for when the script runs (default: daily at 03:00)
+      CRON_SCHEDULE: "0 3 * * *"
+      # Arguments passed to unmonitarr.py on every scheduled run.
+      # --hide-already-unmonitored is recommended if Maintainerr (or
+      # anything else) is also touching monitored state, to avoid
+      # re-logging the same already-handled items every run.
+      SCRIPT_ARGS: "--apply --hide-already-unmonitored"
+      # Set to "true" to also run once immediately at container startup
+      RUN_ON_START: "false"
