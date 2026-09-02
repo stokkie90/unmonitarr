@@ -45,6 +45,11 @@ pip install plexapi requests
 python unmonitarr.py --help
 ```
 
+The pinned `requirements.txt` in this repo (which also includes `croniter`,
+needed by `scheduler.py`) is what the Docker image installs from, and is
+what Dependabot tracks for updates; it's not needed for plain `uv run` or
+`pip install` usage above.
+
 ## Configuration
 
 All connection details can be passed as CLI flags or environment variables

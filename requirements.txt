@@ -1,0 +1,8 @@
+# Pinned so Dependabot can track and bump these. Mirrors the dependencies
+# declared unpinned in unmonitarr.py's PEP 723 header (for `uv run`) plus
+# scheduler.py's croniter. Dependabot doesn't yet parse PEP 723 inline
+# script metadata (dependabot/dependabot-core#11946), so this file is what
+# it actually scans; the Docker image installs from this file.
+plexapi==4.18.2
+requests==2.34.2
+croniter==6.2.4

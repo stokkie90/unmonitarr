@@ -2,11 +2,12 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Dependencies are declared once, in unmonitarr.py's PEP 723 header, but
-# we install them normally here so the container doesn't need internet
-# access (or uv) at runtime.
-COPY unmonitarr.py scheduler.py ./
-RUN pip install --no-cache-dir plexapi requests croniter \
+# Dependencies are also declared in unmonitarr.py's PEP 723 header (for
+# `uv run` outside Docker), but the image installs from the pinned
+# requirements.txt instead, so the container doesn't need internet access
+# (or uv) at runtime, and so Dependabot has pinned versions to track.
+COPY unmonitarr.py scheduler.py requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt \
     && chmod +x unmonitarr.py scheduler.py
 
 ENV PYTHONUNBUFFERED=1 \

@@ -9,3 +9,11 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+
+  # Tracks requirements.txt, which mirrors unmonitarr.py's PEP 723 header
+  # and scheduler.py's croniter dependency. Dependabot doesn't yet parse
+  # PEP 723 inline script metadata directly (dependabot/dependabot-core#11946).
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
